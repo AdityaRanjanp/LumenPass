@@ -52,9 +52,19 @@ def _load_flask_secret_key() -> str:
 
 app.secret_key = _load_flask_secret_key()
 
+
+def _env_or_default(name: str, default: str) -> str:
+    """Return stripped env value, or default if missing/blank."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    value = value.strip()
+    return value or default
+
+
 # Admin credentials (change these for production)
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+ADMIN_USERNAME = _env_or_default("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = _env_or_default("ADMIN_PASSWORD", "admin123")
 
 # Initialise the database on first launch
 init_db()

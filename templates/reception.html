@@ -43,6 +43,7 @@
             <div class="liveness-controls">
                 <button type="button" class="btn-cam" id="startCamBtn">Start Camera</button>
                 <button type="button" class="btn-cam btn-cam--stop" id="stopCamBtn" style="display:none">Stop Camera</button>
+                <button type="button" class="btn-cam" id="manualVerifyBtn" style="display:none">Continue Manually</button>
             </div>
 
             <div class="liveness-status">
@@ -90,6 +91,7 @@
     const submitBtn = document.getElementById("submitBtn");
     const startBtn = document.getElementById("startCamBtn");
     const stopBtn = document.getElementById("stopCamBtn");
+    const manualVerifyBtn = document.getElementById("manualVerifyBtn");
     const dot1 = document.getElementById("dot1");
     const dot2 = document.getElementById("dot2");
     const phoneInput = document.getElementById("phoneInput");
@@ -97,9 +99,12 @@
 
     let blinkCounter = 0;
     let eyeClosed = false;
+    let closedFrameCount = 0;
+    let earBaseline = null;
     let cameraObj = null;
     let mediaStream = null;
     let frameLoopHandle = null;
+    let manualFallbackTimer = null;
     let verified = false;
 
     function stopCameraStreams() {
@@ -119,6 +124,10 @@
             video.srcObject.getTracks().forEach((track) => track.stop());
             video.srcObject = null;
         }
+        if (manualFallbackTimer) {
+            clearTimeout(manualFallbackTimer);
+            manualFallbackTimer = null;
+        }
     }
 
     function dist(a, b) {
@@ -129,7 +138,29 @@
         const v1 = dist(lm[pts[1]], lm[pts[5]]);
         const v2 = dist(lm[pts[2]], lm[pts[4]]);
         const h = dist(lm[pts[0]], lm[pts[3]]);
+        if (!h) return 0;
         return (v1 + v2) / (2.0 * h);
+    }
+
+    function completeVerification(mode = "auto") {
+        if (verified) return;
+        verified = true;
+
+        statusMsg.innerText = mode === "manual"
+            ? "Manual verification enabled. You can now register."
+            : "Liveness verified. You can now register.";
+        statusMsg.classList.add("status-verified");
+        submitBtn.disabled = false;
+        submitBtn.innerText = "Register and Generate QR";
+
+        stopCameraStreams();
+        video.style.display = "none";
+        canvas.style.display = "none";
+        overlay.style.display = "flex";
+        overlay.innerHTML = "<span style='color:#22c55e;font-size:1.1rem'>Verified</span>";
+        startBtn.style.display = "none";
+        stopBtn.style.display = "none";
+        manualVerifyBtn.style.display = "none";
     }
 
     function detectBlink(landmarks) {
@@ -137,9 +168,23 @@
         const rightEAR = getEAR(landmarks, [362, 385, 387, 263, 373, 380]);
         const avgEAR = (leftEAR + rightEAR) / 2;
 
-        if (avgEAR < 0.20) {
-            eyeClosed = true;
-        } else if (eyeClosed && avgEAR > 0.25) {
+        if (avgEAR > 0.2) {
+            earBaseline = earBaseline === null ? avgEAR : (earBaseline * 0.92 + avgEAR * 0.08);
+        }
+        const baseline = earBaseline ?? 0.28;
+        const closeThreshold = Math.max(0.16, baseline * 0.72);
+        const openThreshold = Math.max(0.21, baseline * 0.86);
+
+        if (avgEAR < closeThreshold) {
+            closedFrameCount += 1;
+            if (closedFrameCount >= 2) {
+                eyeClosed = true;
+            }
+        } else {
+            closedFrameCount = 0;
+        }
+
+        if (eyeClosed && avgEAR > openThreshold) {
             blinkCounter++;
             eyeClosed = false;
             updateUI(blinkCounter);
@@ -152,19 +197,7 @@
         statusMsg.innerText = "Blinks detected: " + count + "/2";
 
         if (count >= 2 && !verified) {
-            verified = true;
-            statusMsg.innerText = "Liveness verified. You can now register.";
-            statusMsg.classList.add("status-verified");
-            submitBtn.disabled = false;
-            submitBtn.innerText = "Register and Generate QR";
-
-            stopCameraStreams();
-            video.style.display = "none";
-            canvas.style.display = "none";
-            overlay.style.display = "flex";
-            overlay.innerHTML = "<span style='color:#22c55e;font-size:1.1rem'>Verified</span>";
-            startBtn.style.display = "none";
-            stopBtn.style.display = "none";
+            completeVerification("auto");
         }
     }
 
@@ -185,6 +218,8 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
             detectBlink(results.multiFaceLandmarks[0]);
+        } else if (!verified) {
+            statusMsg.innerText = "Face not detected. Keep your face centered in good light.";
         }
     });
 
@@ -221,7 +256,22 @@
         canvas.style.display = "block";
         startBtn.style.display = "none";
         stopBtn.style.display = "inline-flex";
+        manualVerifyBtn.style.display = "none";
         statusMsg.innerText = "Detecting face... look at the camera";
+
+        blinkCounter = 0;
+        eyeClosed = false;
+        closedFrameCount = 0;
+        earBaseline = null;
+        dot1.classList.remove("blink-dot--active");
+        dot2.classList.remove("blink-dot--active");
+
+        manualFallbackTimer = setTimeout(() => {
+            if (!verified) {
+                manualVerifyBtn.style.display = "inline-flex";
+                statusMsg.innerText = "If blink is not detected, use Continue Manually.";
+            }
+        }, 20000);
 
         try {
             if (typeof Camera !== "undefined") {
@@ -245,6 +295,7 @@
                 overlay.innerHTML = "<span>Camera unavailable or blocked</span>";
                 startBtn.style.display = "inline-flex";
                 stopBtn.style.display = "none";
+                manualVerifyBtn.style.display = "none";
                 statusMsg.innerText = "Could not start camera. Allow permission and retry.";
             }
         }
@@ -258,7 +309,12 @@
         overlay.innerHTML = "<span>Camera stopped - click Start to retry</span>";
         startBtn.style.display = "inline-flex";
         stopBtn.style.display = "none";
+        manualVerifyBtn.style.display = "none";
         statusMsg.innerText = "Camera stopped";
+    });
+
+    manualVerifyBtn.addEventListener("click", () => {
+        completeVerification("manual");
     });
 
     window.addEventListener("beforeunload", stopCameraStreams);
