@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}QR-Secure{% endblock %}</title>
+    <meta name="description" content="Privacy-preserving digital visitor management with AES-256 encryption.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <!-- ── Top Navigation ── -->
+    <nav class="navbar">
+        <a href="/" class="nav-brand">
+            <span class="brand-icon">🛡️</span> QR-Secure
+        </a>
+        <div class="nav-links">
+            <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Reception</a>
+            <a href="/admin" class="nav-link {% if '/admin' in request.path %}active{% endif %}">Admin Panel</a>
+            {% if session.get('admin_logged_in') %}
+            <a href="/logout" class="nav-link">Logout</a>
+            {% else %}
+            <a href="/login" class="nav-link {% if '/login' in request.path %}active{% endif %}">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- ── Flash Messages ── -->
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- ── Footer ── -->
+    <footer class="footer">
+        <p>QR-Secure &copy; 2026 &mdash; Centre for Cybersecurity, SOA University</p>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

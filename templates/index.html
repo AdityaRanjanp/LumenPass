@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR-Secure — Privacy-Preserving Visitor Management</title>
+    <meta name="description"
+        content="A privacy-preserving digital visitor management system using AES-256 encrypted QR passes.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="landing-page">
+
+        <!-- ── Navbar ── -->
+        <nav class="landing-nav">
+            <a href="/" class="nav-logo">
+                <span class="logo-icon">🛡️</span> QR-Secure
+            </a>
+            <div class="landing-nav-links">
+                <a href="/">Home</a>
+                <a href="/about">About</a>
+                <a href="/reception">Register</a>
+                <a href="/login">Admin</a>
+            </div>
+        </nav>
+
+        <!-- ── Hero ── -->
+        <main class="landing-hero">
+            <div class="landing-panel">
+                <h1>WELCOME TO<br>QR-SECURE</h1>
+                <p class="landing-sub">
+                    A Privacy-Preserving Digital Visitor Management System
+                    for Secure Office Environments.
+                </p>
+
+                <div class="landing-btns">
+                    <a href="/reception" class="btn-main" style="width:auto; padding:.8rem 2rem">
+                        📋 Register Visitor
+                    </a>
+                    <a href="/login" class="btn-outline" style="padding:.8rem 2rem">
+                        🔐 Admin Login
+                    </a>
+                </div>
+
+                <div class="landing-features">
+                    <span class="feature-chip">🔒 AES-256 Encrypted</span>
+                    <span class="feature-chip">💾 Local Storage</span>
+                    <span class="feature-chip">📷 QR Verified</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- ── Footer ── -->
+        <footer class="landing-footer">
+            QR-Secure &copy; 2026 &mdash; Centre for Cybersecurity, SOA University
+        </footer>
+
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}QR-Secure — Pass Generated{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>✅ Registration Complete</h1>
+    <p class="subtitle">Visitor pass generated successfully.</p>
+</section>
+
+<div class="glass-card glass-card--narrow">
+    <div class="success-details">
+        <div class="detail-row">
+            <span class="detail-label">Visitor ID</span>
+            <span class="detail-value badge">#{{ visitor_id }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Name</span>
+            <span class="detail-value">{{ name }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Status</span>
+            <span class="detail-value badge badge-green">Checked In</span>
+        </div>
+    </div>
+
+    <div class="qr-preview">
+        <h3>QR Pass</h3>
+        <img src="/qr/{{ qr_filename }}" alt="Visitor QR Code" class="qr-image" id="qrImage">
+        <p class="hint">Print or show this QR code at the security checkpoint.</p>
+    </div>
+
+    <div class="action-row">
+        <a href="/qr/{{ qr_filename }}" download="QR_Pass_{{ name }}.png" class="btn-main" id="downloadBtn"
+            style="width:auto; padding:.7rem 1.5rem">
+            ⬇ Download QR Pass
+        </a>
+        <a href="/reception" class="btn-outline">Register Another</a>
+        <a href="/admin" class="btn-outline">Go to Admin</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block title %}QR-Secure - Visitor Registration{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Visitor Registration</h1>
+    <p class="subtitle">Encrypt. Register. Generate a secure QR pass.</p>
+</section>
+
+<div class="glass-card glass-card--narrow">
+    <form action="/register" method="POST" id="regForm">
+
+        <div class="input-float">
+            <input type="text" name="name" required autocomplete="name">
+            <span>Full Name</span>
+        </div>
+
+        <div class="input-float">
+            <input type="tel" name="phone" id="phoneInput" pattern="[0-9]{10}" maxlength="10"
+                title="Please enter a valid 10-digit mobile number" inputmode="numeric" required>
+            <span>Phone Number</span>
+            <small class="input-hint">10-digit mobile - will be AES-256 encrypted</small>
+            <small class="input-error" id="phoneError">Please enter exactly 10 digits (0-9 only)</small>
+        </div>
+
+        <div class="input-float">
+            <input type="text" name="purpose" required>
+            <span>Purpose of Visit</span>
+        </div>
+
+        <div class="liveness-section">
+            <h3 class="liveness-title">Liveness Verification</h3>
+            <p class="liveness-hint">Blink <strong>2 times</strong> in front of the camera to verify you are a real person.</p>
+
+            <div class="webcam-container">
+                <video id="webcamFeed" autoplay playsinline muted></video>
+                <canvas id="faceCanvas"></canvas>
+                <div class="webcam-overlay" id="webcamOverlay">
+                    <span>Click "Start Camera" below</span>
+                </div>
+            </div>
+
+            <div class="liveness-controls">
+                <button type="button" class="btn-cam" id="startCamBtn">Start Camera</button>
+                <button type="button" class="btn-cam btn-cam--stop" id="stopCamBtn" style="display:none">Stop Camera</button>
+            </div>
+
+            <div class="liveness-status">
+                <div class="blink-counter">
+                    <span class="blink-dot" id="dot1"></span>
+                    <span class="blink-dot" id="dot2"></span>
+                </div>
+                <p class="status-msg" id="statusMsg">Waiting for camera...</p>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-main" id="submitBtn" disabled>
+            Verify Liveness First
+        </button>
+
+    </form>
+</div>
+
+<section class="info-strip">
+    <div class="info-item">
+        <span class="info-icon">Secure</span>
+        <span>AES-256 Encrypted</span>
+    </div>
+    <div class="info-item">
+        <span class="info-icon">Local</span>
+        <span>SQLite Storage</span>
+    </div>
+    <div class="info-item">
+        <span class="info-icon">QR</span>
+        <span>QR Verified Entry</span>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+<script>
+    const video = document.getElementById("webcamFeed");
+    const canvas = document.getElementById("faceCanvas");
+    const ctx = canvas.getContext("2d");
+    const overlay = document.getElementById("webcamOverlay");
+    const statusMsg = document.getElementById("statusMsg");
+    const submitBtn = document.getElementById("submitBtn");
+    const startBtn = document.getElementById("startCamBtn");
+    const stopBtn = document.getElementById("stopCamBtn");
+    const dot1 = document.getElementById("dot1");
+    const dot2 = document.getElementById("dot2");
+    const phoneInput = document.getElementById("phoneInput");
+    const phoneError = document.getElementById("phoneError");
+
+    let blinkCounter = 0;
+    let eyeClosed = false;
+    let cameraObj = null;
+    let mediaStream = null;
+    let frameLoopHandle = null;
+    let verified = false;
+
+    function stopCameraStreams() {
+        if (cameraObj) {
+            try { cameraObj.stop(); } catch (_) { }
+            cameraObj = null;
+        }
+        if (frameLoopHandle) {
+            clearInterval(frameLoopHandle);
+            frameLoopHandle = null;
+        }
+        if (mediaStream) {
+            mediaStream.getTracks().forEach((track) => track.stop());
+            mediaStream = null;
+        }
+        if (video.srcObject) {
+            video.srcObject.getTracks().forEach((track) => track.stop());
+            video.srcObject = null;
+        }
+    }
+
+    function dist(a, b) {
+        return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+    }
+
+    function getEAR(lm, pts) {
+        const v1 = dist(lm[pts[1]], lm[pts[5]]);
+        const v2 = dist(lm[pts[2]], lm[pts[4]]);
+        const h = dist(lm[pts[0]], lm[pts[3]]);
+        return (v1 + v2) / (2.0 * h);
+    }
+
+    function detectBlink(landmarks) {
+        const leftEAR = getEAR(landmarks, [33, 160, 158, 133, 153, 144]);
+        const rightEAR = getEAR(landmarks, [362, 385, 387, 263, 373, 380]);
+        const avgEAR = (leftEAR + rightEAR) / 2;
+
+        if (avgEAR < 0.20) {
+            eyeClosed = true;
+        } else if (eyeClosed && avgEAR > 0.25) {
+            blinkCounter++;
+            eyeClosed = false;
+            updateUI(blinkCounter);
+        }
+    }
+
+    function updateUI(count) {
+        if (count >= 1) dot1.classList.add("blink-dot--active");
+        if (count >= 2) dot2.classList.add("blink-dot--active");
+        statusMsg.innerText = "Blinks detected: " + count + "/2";
+
+        if (count >= 2 && !verified) {
+            verified = true;
+            statusMsg.innerText = "Liveness verified. You can now register.";
+            statusMsg.classList.add("status-verified");
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Register and Generate QR";
+
+            stopCameraStreams();
+            video.style.display = "none";
+            canvas.style.display = "none";
+            overlay.style.display = "flex";
+            overlay.innerHTML = "<span style='color:#22c55e;font-size:1.1rem'>Verified</span>";
+            startBtn.style.display = "none";
+            stopBtn.style.display = "none";
+        }
+    }
+
+    const faceMesh = new FaceMesh({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+    });
+
+    faceMesh.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+    });
+
+    faceMesh.onResults((results) => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+            detectBlink(results.multiFaceLandmarks[0]);
+        }
+    });
+
+    async function startFallbackCameraLoop() {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: "user",
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+            },
+            audio: false,
+        });
+
+        video.srcObject = mediaStream;
+        await video.play();
+
+        frameLoopHandle = setInterval(async () => {
+            if (video.readyState >= 2) {
+                await faceMesh.send({ image: video });
+            }
+        }, 120);
+    }
+
+    startBtn.addEventListener("click", async () => {
+        if (verified) return;
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            statusMsg.innerText = "Camera API is not supported in this browser.";
+            return;
+        }
+
+        overlay.style.display = "none";
+        video.style.display = "block";
+        canvas.style.display = "block";
+        startBtn.style.display = "none";
+        stopBtn.style.display = "inline-flex";
+        statusMsg.innerText = "Detecting face... look at the camera";
+
+        try {
+            if (typeof Camera !== "undefined") {
+                cameraObj = new Camera(video, {
+                    onFrame: async () => { await faceMesh.send({ image: video }); },
+                    width: 320,
+                    height: 240,
+                });
+                await cameraObj.start();
+            } else {
+                await startFallbackCameraLoop();
+            }
+        } catch (_) {
+            try {
+                await startFallbackCameraLoop();
+            } catch (fallbackErr) {
+                stopCameraStreams();
+                video.style.display = "none";
+                canvas.style.display = "none";
+                overlay.style.display = "flex";
+                overlay.innerHTML = "<span>Camera unavailable or blocked</span>";
+                startBtn.style.display = "inline-flex";
+                stopBtn.style.display = "none";
+                statusMsg.innerText = "Could not start camera. Allow permission and retry.";
+            }
+        }
+    });
+
+    stopBtn.addEventListener("click", () => {
+        stopCameraStreams();
+        video.style.display = "none";
+        canvas.style.display = "none";
+        overlay.style.display = "flex";
+        overlay.innerHTML = "<span>Camera stopped - click Start to retry</span>";
+        startBtn.style.display = "inline-flex";
+        stopBtn.style.display = "none";
+        statusMsg.innerText = "Camera stopped";
+    });
+
+    window.addEventListener("beforeunload", stopCameraStreams);
+
+    phoneInput.addEventListener("input", function () {
+        this.value = this.value.replace(/\D/g, "");
+        if (this.value.length === 10) phoneError.style.display = "none";
+    });
+
+    document.getElementById("regForm").addEventListener("submit", function (e) {
+        if (!/^\d{10}$/.test(phoneInput.value)) {
+            e.preventDefault();
+            phoneError.style.display = "block";
+            phoneInput.focus();
+        }
+    });
+</script>
+{% endblock %}

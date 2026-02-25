@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}QR-Secure — Visitor #{{ visitor.id }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Visitor Details</h1>
+    <p class="subtitle">Decrypted record for verification.</p>
+</section>
+
+<div class="glass-card glass-card--narrow">
+    <div class="success-details">
+        <div class="detail-row">
+            <span class="detail-label">Visitor ID</span>
+            <span class="detail-value badge">#{{ visitor.id }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Name</span>
+            <span class="detail-value">{{ visitor.name }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Phone</span>
+            <span class="detail-value">{{ visitor.phone }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Purpose</span>
+            <span class="detail-value">{{ visitor.purpose }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Check-In Time</span>
+            <span class="detail-value">{{ visitor.timestamp }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Status</span>
+            {% if visitor.status == 'checked_in' %}
+            <span class="detail-value badge badge-green">Checked In</span>
+            {% else %}
+            <span class="detail-value badge badge-grey">Checked Out</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="action-row">
+        {% if visitor.status == 'checked_in' %}
+        <form action="/checkout/{{ visitor.id }}" method="POST">
+            <button type="submit" class="btn-danger" style="padding:.6rem 1.2rem; font-size:.88rem">Check Out</button>
+        </form>
+        {% endif %}
+        <a href="/admin" class="btn-outline">← Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

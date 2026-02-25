@@ -1,0 +1,8 @@
+# QR-Secure — Dependencies
+Flask==3.1.0
+pycryptodome==3.21.0
+qrcode[pil]==8.0
+opencv-python==4.11.0.86
+pyzbar==0.1.9
+Pillow==11.1.0
+gunicorn>=22.0.0,<24.0.0

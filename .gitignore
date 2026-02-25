@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local secrets
+.secret.key
+.flask_secret.key
+.env
+
+# Local runtime data
+visitors.db
+qr_codes/
+
+# OS/editor files
+.DS_Store
+Thumbs.db

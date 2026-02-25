@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR-Secure — Admin Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="login-page">
+        <div class="login-card">
+            <div class="glass-card">
+
+                <div class="login-header">
+                    <span class="lock-icon">🔐</span>
+                    <h1>Admin Access</h1>
+                    <p>QR-Secure Visitor Management</p>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div class="login-alert login-alert-error">{{ message }}</div>
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="/login">
+                    <div class="input-float">
+                        <input type="text" name="username" required>
+                        <span>Username</span>
+                    </div>
+                    <div class="input-float">
+                        <input type="password" name="password" required>
+                        <span>Password</span>
+                    </div>
+                    <button type="submit" class="btn-main">Sign In →</button>
+                </form>
+
+                <div class="login-footer">
+                    <a href="/reception">← Back to Reception</a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

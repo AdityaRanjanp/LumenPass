@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR-Secure — About</title>
+    <meta name="description"
+        content="Learn how QR-Secure modernizes visitor management with AES-256 encryption and liveness detection.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="about-page">
+
+        <!-- ── Navbar ── -->
+        <nav class="about-nav">
+            <a href="/" class="about-nav-logo">
+                <span class="logo-icon">🛡️</span> QR-Secure
+            </a>
+            <div class="about-nav-links">
+                <a href="/">Home</a>
+                <a href="/about" class="active">About</a>
+                <a href="/reception">Register</a>
+                <a href="/login">Admin</a>
+            </div>
+        </nav>
+
+        <!-- ── Header ── -->
+        <header class="about-header">
+            <h1>About QR-Secure</h1>
+            <p class="about-subtitle">Modernizing Security at Siksha 'O' Anusandhan</p>
+        </header>
+
+        <!-- ── Card Grid ── -->
+        <div class="about-grid">
+            <div class="about-card">
+                <div class="about-card-icon">⚠️</div>
+                <h3>The Core Problem</h3>
+                <p>Traditional visitor logs are a major security and privacy loophole. Manual entries allow unauthorized
+                    data visibility and are easy to tamper with. They lack data integrity and are difficult to audit
+                    during security breaches.</p>
+            </div>
+
+            <div class="about-card">
+                <div class="about-card-icon">🛡️</div>
+                <h3>Our Solution</h3>
+                <p>QR-Secure digitizes the entire workflow. We encrypt sensitive visitor data using AES-256 and issue
+                    secure, time-bound QR passes. Data like phone numbers and purpose are secured end-to-end with local
+                    SQLite storage.</p>
+            </div>
+
+            <div class="about-card">
+                <div class="about-card-icon">👁️</div>
+                <h3>Liveness Innovation</h3>
+                <p>To prevent photo-spoofing, we implemented an Eye-Blink detection system. Registration only proceeds
+                    when a real human is verified through a 2-blink liveness check using real-time EAR (Eye Aspect
+                    Ratio) tracking.</p>
+            </div>
+        </div>
+
+        <!-- ── Tech Stack ── -->
+        <div class="about-tech">
+            <h3>Technology Stack</h3>
+            <div class="tech-chips">
+                <span class="tech-chip">🐍 Python / Flask</span>
+                <span class="tech-chip">🔐 AES-256 (PyCryptodome)</span>
+                <span class="tech-chip">💾 SQLite3</span>
+                <span class="tech-chip">📷 MediaPipe Face Mesh</span>
+                <span class="tech-chip">📱 QR Code (qrcode + pyzbar)</span>
+                <span class="tech-chip">🎨 HTML / CSS / JS</span>
+            </div>
+        </div>
+
+        <!-- ── Footer ── -->
+        <footer class="about-footer">
+            QR-Secure &copy; 2026 &mdash; Centre for Cybersecurity, SOA University
+        </footer>
+
+    </div>
+</body>
+
+</html>

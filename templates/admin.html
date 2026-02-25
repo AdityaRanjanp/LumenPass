@@ -1,0 +1,317 @@
+﻿{% extends "base.html" %}
+{% block title %}QR-Secure - Admin Dashboard{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Admin Dashboard</h1>
+    <p class="subtitle">Scan QR passes and manage visitor records.</p>
+</section>
+
+<div class="glass-card">
+    <h2>QR Scanner</h2>
+    <p style="color:var(--text-sub); margin-bottom:1rem">
+        Mobile mode uses your phone browser camera. Desktop mode uses server-side OpenCV webcam (local machine only).
+    </p>
+
+    <div class="scanner-actions">
+        <button id="startBrowserScanBtn" class="btn-main scanner-btn-main">Start Mobile Camera Scan</button>
+        <button id="stopBrowserScanBtn" class="btn-outline hidden">Stop Mobile Scanner</button>
+        <button id="serverScanBtn" class="btn-outline">Start Desktop Webcam Scan</button>
+    </div>
+
+    <div id="browserQrReader" class="browser-qr-reader hidden"></div>
+
+    <div id="scanResult" class="scan-result hidden">
+        <h3 style="margin:1rem 0 .5rem">Scan Result</h3>
+        <div id="scanDetails"></div>
+    </div>
+</div>
+
+<div class="glass-card glass-card--wide">
+    <h2>Visitor Log</h2>
+
+    {% if visitors %}
+    <div class="table-wrapper desktop-visitor-table">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Purpose</th>
+                    <th>Check-In</th>
+                    <th>Status</th>
+                    <th>Verified By</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in visitors %}
+                <tr class="{{ 'row-out' if v.status == 'checked_out' else '' }}">
+                    <td><span class="badge">#{{ v.id }}</span></td>
+                    <td>{{ v.name }}</td>
+                    <td>{{ v.phone }}</td>
+                    <td>{{ v.purpose }}</td>
+                    <td>{{ v.timestamp }}</td>
+                    <td>
+                        {% if v.status == 'checked_in' %}
+                        <span class="badge badge-green">In</span>
+                        {% else %}
+                        <span class="badge badge-grey">Out</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ v.verified_by }}</td>
+                    <td class="action-cell">
+                        <a href="/verify/{{ v.id }}" class="btn-sm">View</a>
+                        {% if v.status == 'checked_in' %}
+                        <form action="/checkout/{{ v.id }}" method="POST" class="inline-form">
+                            <button type="submit" class="btn-danger">Check Out</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mobile-visitor-list">
+        {% for v in visitors %}
+        <article class="mobile-visitor-card {{ 'row-out' if v.status == 'checked_out' else '' }}">
+            <div class="mobile-visitor-head">
+                <span class="badge">#{{ v.id }}</span>
+                {% if v.status == 'checked_in' %}
+                <span class="badge badge-green">In</span>
+                {% else %}
+                <span class="badge badge-grey">Out</span>
+                {% endif %}
+            </div>
+
+            <div class="mobile-kv">
+                <span class="mobile-k">Name</span>
+                <span class="mobile-v">{{ v.name }}</span>
+            </div>
+            <div class="mobile-kv">
+                <span class="mobile-k">Phone</span>
+                <span class="mobile-v">{{ v.phone }}</span>
+            </div>
+            <div class="mobile-kv">
+                <span class="mobile-k">Purpose</span>
+                <span class="mobile-v">{{ v.purpose }}</span>
+            </div>
+            <div class="mobile-kv">
+                <span class="mobile-k">Check-In</span>
+                <span class="mobile-v">{{ v.timestamp }}</span>
+            </div>
+            <div class="mobile-kv">
+                <span class="mobile-k">Verified By</span>
+                <span class="mobile-v">{{ v.verified_by }}</span>
+            </div>
+
+            <div class="mobile-actions">
+                <a href="/verify/{{ v.id }}" class="btn-sm">View</a>
+                {% if v.status == 'checked_in' %}
+                <form action="/checkout/{{ v.id }}" method="POST" class="inline-form">
+                    <button type="submit" class="btn-danger">Check Out</button>
+                </form>
+                {% endif %}
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No visitors registered yet.</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+    const startBrowserScanBtn = document.getElementById("startBrowserScanBtn");
+    const stopBrowserScanBtn = document.getElementById("stopBrowserScanBtn");
+    const serverScanBtn = document.getElementById("serverScanBtn");
+    const browserQrReader = document.getElementById("browserQrReader");
+    const scanResult = document.getElementById("scanResult");
+    const scanDetails = document.getElementById("scanDetails");
+
+    let browserScanner = null;
+    let browserScannerRunning = false;
+    let verifyInProgress = false;
+
+    function escapeHtml(value) {
+        const text = String(value ?? "");
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function renderResultError(message) {
+        scanResult.classList.remove("hidden");
+        scanDetails.innerHTML = `<p class="error-msg">${escapeHtml(message)}</p>`;
+    }
+
+    function renderResultSuccess(data) {
+        const safe = {
+            id: escapeHtml(data.id),
+            name: escapeHtml(data.name),
+            phone: escapeHtml(data.phone),
+            purpose: escapeHtml(data.purpose),
+            timestamp: escapeHtml(data.timestamp),
+            status: escapeHtml(data.status),
+            verified_by: escapeHtml(data.verified_by),
+        };
+
+        const statusClass = data.status === "checked_in" ? "badge-green" : "badge-grey";
+
+        scanResult.classList.remove("hidden");
+        scanDetails.innerHTML = `
+            <div class="detail-row"><span class="detail-label">ID</span>          <span class="detail-value badge">#${safe.id}</span></div>
+            <div class="detail-row"><span class="detail-label">Name</span>        <span class="detail-value">${safe.name}</span></div>
+            <div class="detail-row"><span class="detail-label">Phone</span>       <span class="detail-value">${safe.phone}</span></div>
+            <div class="detail-row"><span class="detail-label">Purpose</span>     <span class="detail-value">${safe.purpose}</span></div>
+            <div class="detail-row"><span class="detail-label">Check-In</span>    <span class="detail-value">${safe.timestamp}</span></div>
+            <div class="detail-row"><span class="detail-label">Status</span>      <span class="detail-value badge ${statusClass}">${safe.status}</span></div>
+            <div class="detail-row"><span class="detail-label">Verified By</span> <span class="detail-value">${safe.verified_by}</span></div>
+        `;
+    }
+
+    function parseVisitorIdFromScan(decodedText) {
+        if (!decodedText) return null;
+
+        const text = decodedText.trim();
+
+        if (/^\d+$/.test(text)) return Number(text);
+
+        const verifyMatch = text.match(/\/verify\/(\d+)/i);
+        if (verifyMatch) return Number(verifyMatch[1]);
+
+        try {
+            const payload = JSON.parse(text);
+            if (payload && payload.id != null && /^\d+$/.test(String(payload.id))) {
+                return Number(payload.id);
+            }
+        } catch (_) {
+            // not a JSON payload
+        }
+
+        return null;
+    }
+
+    async function verifyVisitorById(visitorId) {
+        try {
+            const response = await fetch("/api/verify-scan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ visitor_id: visitorId }),
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                renderResultSuccess(data);
+            } else {
+                renderResultError(data.message || "Verification failed.");
+            }
+        } catch (err) {
+            renderResultError(`Network error: ${err}`);
+        }
+    }
+
+    async function stopBrowserScanner() {
+        if (browserScanner) {
+            try {
+                await browserScanner.clear();
+            } catch (_) {
+                // ignore clear errors
+            }
+        }
+
+        browserScanner = null;
+        browserScannerRunning = false;
+        browserQrReader.classList.add("hidden");
+        startBrowserScanBtn.disabled = false;
+        stopBrowserScanBtn.classList.add("hidden");
+    }
+
+    function startBrowserScanner() {
+        if (browserScannerRunning) return;
+
+        if (typeof Html5QrcodeScanner === "undefined") {
+            renderResultError("Mobile scanner library not loaded.");
+            return;
+        }
+
+        browserQrReader.classList.remove("hidden");
+        stopBrowserScanBtn.classList.remove("hidden");
+        startBrowserScanBtn.disabled = true;
+        scanResult.classList.add("hidden");
+
+        const config = {
+            fps: 10,
+            qrbox: { width: 240, height: 240 },
+            rememberLastUsedCamera: true,
+            showTorchButtonIfSupported: true,
+        };
+        if (typeof Html5QrcodeScanType !== "undefined") {
+            config.supportedScanTypes = [
+                Html5QrcodeScanType.SCAN_TYPE_CAMERA,
+                Html5QrcodeScanType.SCAN_TYPE_FILE,
+            ];
+        }
+
+        browserScanner = new Html5QrcodeScanner("browserQrReader", config, false);
+        browserScannerRunning = true;
+
+        browserScanner.render(
+            async (decodedText) => {
+                if (verifyInProgress) return;
+                verifyInProgress = true;
+
+                const visitorId = parseVisitorIdFromScan(decodedText);
+                if (!visitorId) {
+                    renderResultError("Invalid QR payload. Could not find visitor ID.");
+                    verifyInProgress = false;
+                    return;
+                }
+
+                await stopBrowserScanner();
+                await verifyVisitorById(visitorId);
+                verifyInProgress = false;
+            },
+            () => {
+                // ignore per-frame decode errors from scanner
+            }
+        );
+    }
+
+    function startServerScan() {
+        serverScanBtn.textContent = "Scanning... (check OpenCV window)";
+        serverScanBtn.disabled = true;
+        scanResult.classList.add("hidden");
+
+        fetch("/scan", { method: "POST" })
+            .then((r) => r.json())
+            .then((data) => {
+                if (data.success) {
+                    renderResultSuccess(data);
+                } else {
+                    renderResultError(data.message || "Scan failed.");
+                }
+            })
+            .catch((err) => {
+                renderResultError(`Network error: ${err}`);
+            })
+            .finally(() => {
+                serverScanBtn.textContent = "Start Desktop Webcam Scan";
+                serverScanBtn.disabled = false;
+            });
+    }
+
+    startBrowserScanBtn.addEventListener("click", startBrowserScanner);
+    stopBrowserScanBtn.addEventListener("click", stopBrowserScanner);
+    serverScanBtn.addEventListener("click", startServerScan);
+</script>
+{% endblock %}
