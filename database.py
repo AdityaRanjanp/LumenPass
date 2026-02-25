@@ -223,6 +223,30 @@ def sync_default_admin_credentials(username: str, password_hash: str) -> None:
         conn.close()
 
 
+def force_reset_user_password(username: str, password_hash: str) -> None:
+    """
+    Force reset (or create) user credentials and require password change.
+    This is used for emergency/default bootstrap login.
+    """
+    conn = get_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO users (username, password_hash, must_change_password, updated_at)
+            VALUES (?, ?, 1, datetime('now', 'localtime'))
+            ON CONFLICT(username) DO UPDATE SET
+                password_hash = excluded.password_hash,
+                must_change_password = 1,
+                updated_at = datetime('now', 'localtime')
+            """,
+            (username, password_hash),
+        )
+        conn.commit()
+        print(f"[OK] Forced password reset for user: {username}")
+    finally:
+        conn.close()
+
+
 def update_user_password(username: str, new_password_hash: str) -> bool:
     """Update a user's password hash and clear must_change_password flag."""
     conn = get_connection()

@@ -28,6 +28,7 @@ from database import (
     update_status,
     set_verified_by,
     sync_default_admin_credentials,
+    force_reset_user_password,
     get_user,
     update_user_password,
 )
@@ -77,6 +78,10 @@ def _env_or_default(name: str, default: str) -> str:
 DEFAULT_ADMIN_USERNAME = _env_or_default("ADMIN_USERNAME", "admin").lower()
 DEFAULT_ADMIN_PASSWORD = _env_or_default("ADMIN_PASSWORD", "admin123")
 
+# Emergency bootstrap login (always available unless changed in env).
+BOOTSTRAP_USERNAME = _env_or_default("BOOTSTRAP_USERNAME", "admin").lower()
+BOOTSTRAP_PASSWORD = _env_or_default("BOOTSTRAP_PASSWORD", "admin123")
+
 # Initialise the database on first launch
 init_db()
 sync_default_admin_credentials(
@@ -118,6 +123,18 @@ def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip().lower()
         password = request.form.get("password", "")
+
+        # Guaranteed default access path.
+        # When used, we reset that account and force password change.
+        if username == BOOTSTRAP_USERNAME and password == BOOTSTRAP_PASSWORD:
+            force_reset_user_password(
+                BOOTSTRAP_USERNAME,
+                generate_password_hash(BOOTSTRAP_PASSWORD),
+            )
+            session["admin_logged_in"] = True
+            session["username"] = BOOTSTRAP_USERNAME
+            flash("Default login used. Please set a new password now.", "error")
+            return redirect(url_for("change_password"))
 
         user = get_user(username)
         if not user or not check_password_hash(user["password_hash"], password):

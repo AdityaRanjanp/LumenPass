@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR-Secure — Admin Login</title>
+    <title>QR-Secure - Admin Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -16,9 +16,12 @@
             <div class="glass-card">
 
                 <div class="login-header">
-                    <span class="lock-icon">🔐</span>
+                    <span class="lock-icon">Lock</span>
                     <h1>Admin Access</h1>
                     <p>QR-Secure Visitor Management</p>
+                    <p style="margin-top:.45rem;font-size:.8rem;color:var(--text-muted)">
+                        Default login: <strong>admin</strong> / <strong>admin123</strong>
+                    </p>
                 </div>
 
                 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -38,11 +41,11 @@
                         <input type="password" name="password" required>
                         <span>Password</span>
                     </div>
-                    <button type="submit" class="btn-main">Sign In →</button>
+                    <button type="submit" class="btn-main">Sign In</button>
                 </form>
 
                 <div class="login-footer">
-                    <a href="/reception">← Back to Reception</a>
+                    <a href="/reception">Back to Reception</a>
                 </div>
 
             </div>
