@@ -1,13 +1,12 @@
 """
-database.py — QR-Secure Visitor Management System
-Initializes and manages the SQLite database for visitor records.
-All visitor PII (phone, purpose) is stored in encrypted form.
+database.py - QR-Secure Visitor Management System
+Initializes and manages SQLite tables for visitor records and admin users.
 """
 
-import sqlite3
 import os
+import sqlite3
 
-# ── Configuration ──────────────────────────────────────────────
+# Configuration
 DB_NAME = "visitors.db"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.getenv("VISITOR_DB_PATH", os.path.join(BASE_DIR, DB_NAME))
@@ -21,26 +20,17 @@ if DB_DIR:
 def get_connection():
     """Return a new SQLite connection with WAL mode for better concurrency."""
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row          # Access columns by name
-    conn.execute("PRAGMA journal_mode=WAL")  # Lightweight write-ahead logging
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
 
 def init_db():
-    """
-    Create the 'visitors' table if it does not already exist.
-
-    Columns:
-        id               — Auto-incrementing primary key.
-        name             — Visitor's full name (plain text, for display only).
-        encrypted_phone  — AES-256 encrypted phone number (base64 string).
-        encrypted_purpose— AES-256 encrypted visit purpose (base64 string).
-        timestamp        — ISO-8601 check-in time, defaults to current UTC.
-        status           — Visit status: 'checked_in' or 'checked_out'.
-    """
+    """Create required tables and run safe migrations."""
     conn = get_connection()
     try:
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS visitors (
                 id                INTEGER PRIMARY KEY AUTOINCREMENT,
                 name              TEXT    NOT NULL,
@@ -50,16 +40,41 @@ def init_db():
                 status            TEXT    NOT NULL DEFAULT 'checked_in',
                 verified_by       TEXT    DEFAULT NULL
             )
-        """)
+            """
+        )
         conn.commit()
 
-        # ── Migration: add verified_by to existing databases ──
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                username             TEXT    NOT NULL UNIQUE,
+                password_hash        TEXT    NOT NULL,
+                must_change_password INTEGER NOT NULL DEFAULT 1,
+                created_at           TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+                updated_at           TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+            """
+        )
+        conn.commit()
+
+        # Migration for older visitors table
         try:
             conn.execute("ALTER TABLE visitors ADD COLUMN verified_by TEXT DEFAULT NULL")
             conn.commit()
             print("[OK] Migrated: added verified_by column")
         except sqlite3.OperationalError:
-            pass  # Column already exists — OK
+            pass
+
+        # Migration for older users table
+        try:
+            conn.execute(
+                "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 1"
+            )
+            conn.commit()
+            print("[OK] Migrated: added must_change_password column")
+        except sqlite3.OperationalError:
+            pass
 
         print(f"[OK] Database initialised: {DB_PATH}")
     except sqlite3.Error as e:
@@ -68,20 +83,8 @@ def init_db():
         conn.close()
 
 
-# ── CRUD Helpers ───────────────────────────────────────────────
-
 def add_visitor(name: str, encrypted_phone: str, encrypted_purpose: str) -> int:
-    """
-    Insert a new visitor record and return the generated ID.
-
-    Args:
-        name             : Visitor's plain-text name.
-        encrypted_phone  : Already-encrypted phone string.
-        encrypted_purpose: Already-encrypted purpose string.
-
-    Returns:
-        The new row's integer ID.
-    """
+    """Insert a new visitor record and return generated row id."""
     conn = get_connection()
     try:
         cursor = conn.execute(
@@ -100,16 +103,12 @@ def add_visitor(name: str, encrypted_phone: str, encrypted_purpose: str) -> int:
 
 
 def get_visitor(visitor_id: int) -> dict | None:
-    """
-    Fetch a single visitor by ID.
-
-    Returns:
-        A dict with the visitor's columns, or None if not found.
-    """
+    """Fetch one visitor by id."""
     conn = get_connection()
     try:
         row = conn.execute(
-            "SELECT * FROM visitors WHERE id = ?", (visitor_id,)
+            "SELECT * FROM visitors WHERE id = ?",
+            (visitor_id,),
         ).fetchone()
         return dict(row) if row else None
     finally:
@@ -117,24 +116,17 @@ def get_visitor(visitor_id: int) -> dict | None:
 
 
 def get_all_visitors() -> list[dict]:
-    """Return every visitor record as a list of dicts (most recent first)."""
+    """Return all visitors (newest first)."""
     conn = get_connection()
     try:
-        rows = conn.execute(
-            "SELECT * FROM visitors ORDER BY id DESC"
-        ).fetchall()
+        rows = conn.execute("SELECT * FROM visitors ORDER BY id DESC").fetchall()
         return [dict(r) for r in rows]
     finally:
         conn.close()
 
 
 def update_status(visitor_id: int, new_status: str) -> bool:
-    """
-    Update a visitor's status (e.g. 'checked_out').
-
-    Returns:
-        True if the row was found and updated, False otherwise.
-    """
+    """Update visitor status and return True when at least one row changed."""
     conn = get_connection()
     try:
         cursor = conn.execute(
@@ -148,16 +140,7 @@ def update_status(visitor_id: int, new_status: str) -> bool:
 
 
 def set_verified_by(visitor_id: int, admin_username: str) -> bool:
-    """
-    Record which admin verified/scanned a visitor's QR pass.
-
-    Args:
-        visitor_id     : The visitor row to update.
-        admin_username : The logged-in admin's username.
-
-    Returns:
-        True if the row was found and updated, False otherwise.
-    """
+    """Record which admin verified/scanned a visitor QR pass."""
     conn = get_connection()
     try:
         cursor = conn.execute(
@@ -170,6 +153,56 @@ def set_verified_by(visitor_id: int, admin_username: str) -> bool:
         conn.close()
 
 
-# ── Standalone Execution ───────────────────────────────────────
+def get_user(username: str) -> dict | None:
+    """Fetch one user by username."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def ensure_default_admin(username: str, password_hash: str) -> None:
+    """
+    Create a default admin user only when it does not already exist.
+    Existing user records are never overwritten.
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            "INSERT OR IGNORE INTO users (username, password_hash, must_change_password) VALUES (?, ?, 1)",
+            (username, password_hash),
+        )
+        conn.commit()
+        if cursor.rowcount > 0:
+            print(f"[OK] Default admin user created: {username}")
+    finally:
+        conn.close()
+
+
+def update_user_password(username: str, new_password_hash: str) -> bool:
+    """Update a user's password hash and clear must_change_password flag."""
+    conn = get_connection()
+    try:
+        cursor = conn.execute(
+            """
+            UPDATE users
+               SET password_hash = ?,
+                   must_change_password = 0,
+                   updated_at = datetime('now', 'localtime')
+             WHERE username = ?
+            """,
+            (new_password_hash, username),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
     init_db()

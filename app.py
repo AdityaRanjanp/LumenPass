@@ -18,8 +18,19 @@ from flask import (
     Flask, render_template, request, redirect,
     url_for, flash, jsonify, send_from_directory, session,
 )
+from werkzeug.security import check_password_hash, generate_password_hash
 
-from database import init_db, add_visitor, get_visitor, get_all_visitors, update_status, set_verified_by
+from database import (
+    init_db,
+    add_visitor,
+    get_visitor,
+    get_all_visitors,
+    update_status,
+    set_verified_by,
+    ensure_default_admin,
+    get_user,
+    update_user_password,
+)
 from security import encrypt_data, decrypt_data
 from qr_handler import generate_qr, scan_qr_from_webcam, QR_DIR
 
@@ -62,21 +73,13 @@ def _env_or_default(name: str, default: str) -> str:
     return value or default
 
 
-def _env_flag(name: str, default: bool = False) -> bool:
-    """Read a boolean flag from environment."""
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-# Admin credentials (change these for production)
-ADMIN_USERNAME = _env_or_default("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = _env_or_default("ADMIN_PASSWORD", "admin123")
-ALLOW_DEFAULT_ADMIN_LOGIN = _env_flag("ALLOW_DEFAULT_ADMIN_LOGIN", True)
+# Default admin credentials (used only to seed first account)
+DEFAULT_ADMIN_USERNAME = _env_or_default("ADMIN_USERNAME", "admin").lower()
+DEFAULT_ADMIN_PASSWORD = _env_or_default("ADMIN_PASSWORD", "admin123")
 
 # Initialise the database on first launch
 init_db()
+ensure_default_admin(DEFAULT_ADMIN_USERNAME, generate_password_hash(DEFAULT_ADMIN_PASSWORD))
 
 
 def _require_admin_redirect():
@@ -110,24 +113,23 @@ def login():
         return redirect(url_for("admin"))
 
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "").strip()
+        username = request.form.get("username", "").strip().lower()
+        password = request.form.get("password", "")
 
-        primary_login_ok = (username == ADMIN_USERNAME and password == ADMIN_PASSWORD)
-        backup_login_ok = (
-            ALLOW_DEFAULT_ADMIN_LOGIN
-            and username.lower() == "admin"
-            and password == "admin123"
-        )
-
-        if primary_login_ok or backup_login_ok:
-            session["admin_logged_in"] = True
-            session["username"] = username
-            flash(f"Welcome, {username}!", "success")
-            return redirect(url_for("admin"))
-        else:
+        user = get_user(username)
+        if not user or not check_password_hash(user["password_hash"], password):
             flash("Invalid credentials.", "error")
             return redirect(url_for("login"))
+
+        session["admin_logged_in"] = True
+        session["username"] = username
+
+        if user.get("must_change_password"):
+            flash("First login detected. Please change your password.", "error")
+            return redirect(url_for("change_password"))
+
+        flash(f"Welcome, {username}!", "success")
+        return redirect(url_for("admin"))
 
     return render_template("login.html")
 
@@ -139,6 +141,56 @@ def logout():
     session.pop("username", None)
     flash("Logged out successfully.", "success")
     return redirect(url_for("login"))
+
+
+@app.route("/change-password", methods=["GET", "POST"])
+def change_password():
+    """Allow logged-in admin to change account password."""
+    auth_redirect = _require_admin_redirect()
+    if auth_redirect:
+        return auth_redirect
+
+    username = session.get("username", "").strip().lower()
+    user = get_user(username)
+    if not user:
+        session.pop("admin_logged_in", None)
+        session.pop("username", None)
+        flash("Session expired. Please log in again.", "error")
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        current_password = request.form.get("current_password", "")
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if not all([current_password, new_password, confirm_password]):
+            flash("All password fields are required.", "error")
+            return redirect(url_for("change_password"))
+
+        if not check_password_hash(user["password_hash"], current_password):
+            flash("Current password is incorrect.", "error")
+            return redirect(url_for("change_password"))
+
+        if len(new_password) < 8:
+            flash("New password must be at least 8 characters.", "error")
+            return redirect(url_for("change_password"))
+
+        if new_password != confirm_password:
+            flash("New password and confirm password do not match.", "error")
+            return redirect(url_for("change_password"))
+
+        if new_password == current_password:
+            flash("New password must be different from current password.", "error")
+            return redirect(url_for("change_password"))
+
+        if not update_user_password(username, generate_password_hash(new_password)):
+            flash("Could not update password. Please try again.", "error")
+            return redirect(url_for("change_password"))
+
+        flash("Password changed successfully.", "success")
+        return redirect(url_for("admin"))
+
+    return render_template("change_password.html")
 
 
 # ── Public Routes ──────────────────────────────────────────────

@@ -21,6 +21,7 @@
             <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Reception</a>
             <a href="/admin" class="nav-link {% if '/admin' in request.path %}active{% endif %}">Admin Panel</a>
             {% if session.get('admin_logged_in') %}
+            <a href="/change-password" class="nav-link {% if '/change-password' in request.path %}active{% endif %}">Change Password</a>
             <a href="/logout" class="nav-link">Logout</a>
             {% else %}
             <a href="/login" class="nav-link {% if '/login' in request.path %}active{% endif %}">Login</a>
