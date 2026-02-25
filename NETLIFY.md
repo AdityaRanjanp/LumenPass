@@ -20,7 +20,7 @@ Set env vars:
 Edit `netlify.toml` and replace:
 
 - `https://YOUR_BACKEND_URL` with your real backend URL  
-  Example: `https://qr-secure.onrender.com`
+  Example: `https://lumenpass.onrender.com`
 
 ## 3. Deploy to Netlify
 

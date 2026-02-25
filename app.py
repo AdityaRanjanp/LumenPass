@@ -1,5 +1,5 @@
 """
-app.py — QR-Secure Flask Application
+app.py — LumenPass Flask Application
 Main web server connecting database, security, and QR modules.
 Routes:
     /               → Reception registration form

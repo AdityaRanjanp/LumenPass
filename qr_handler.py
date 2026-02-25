@@ -1,5 +1,5 @@
 """
-qr_handler.py — QR-Secure QR Code Generation & Scanning Module
+qr_handler.py — LumenPass QR Code Generation & Scanning Module
 Generates QR passes from encrypted visitor data and provides an
 optimized webcam scanner that releases resources immediately.
 
@@ -129,7 +129,7 @@ def scan_qr_from_webcam(timeout_seconds: int = 30) -> dict | None:
             # Decode only every 3rd frame to save CPU
             if frame_count % 3 != 0:
                 # Still show the preview so the user can aim
-                cv2.imshow("QR-Secure Scanner  |  Press 'q' to quit", frame)
+                cv2.imshow("LumenPass Scanner  |  Press 'q' to quit", frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
                 continue
@@ -152,7 +152,7 @@ def scan_qr_from_webcam(timeout_seconds: int = 30) -> dict | None:
                                 (pts[(i + 1) % len(pts)].x, pts[(i + 1) % len(pts)].y),
                                 (0, 255, 0), 3,
                             )
-                    cv2.imshow("QR-Secure Scanner  |  Press 'q' to quit", frame)
+                    cv2.imshow("LumenPass Scanner  |  Press 'q' to quit", frame)
                     cv2.waitKey(800)  # Brief pause so user sees the detection
                     return result
                 except (json.JSONDecodeError, UnicodeDecodeError):
@@ -160,7 +160,7 @@ def scan_qr_from_webcam(timeout_seconds: int = 30) -> dict | None:
                     continue
 
             # Show live preview
-            cv2.imshow("QR-Secure Scanner  |  Press 'q' to quit", frame)
+            cv2.imshow("LumenPass Scanner  |  Press 'q' to quit", frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 

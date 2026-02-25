@@ -1,5 +1,5 @@
 """
-security.py - QR-Secure AES-256 Encryption Module
+security.py - LumenPass AES-256 Encryption Module
 Handles cryptographic operations for the visitor management system.
 
 Default encryption: AES-256-GCM (authenticated encryption).

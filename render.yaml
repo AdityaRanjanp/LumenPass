@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: qr-secure
+    name: lumenpass
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt

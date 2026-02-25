@@ -1,5 +1,5 @@
 """
-database.py - QR-Secure Visitor Management System
+database.py - LumenPass Visitor Management System
 Initializes and manages SQLite tables for visitor records and admin users.
 """
 

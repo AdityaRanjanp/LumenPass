@@ -1,4 +1,4 @@
-# QR-Secure — Dependencies
+# LumenPass — Dependencies
 Flask==3.1.0
 pycryptodome==3.21.0
 qrcode[pil]==8.0
