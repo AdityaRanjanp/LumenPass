@@ -27,7 +27,7 @@ from database import (
     get_all_visitors,
     update_status,
     set_verified_by,
-    ensure_default_admin,
+    sync_default_admin_credentials,
     get_user,
     update_user_password,
 )
@@ -79,7 +79,10 @@ DEFAULT_ADMIN_PASSWORD = _env_or_default("ADMIN_PASSWORD", "admin123")
 
 # Initialise the database on first launch
 init_db()
-ensure_default_admin(DEFAULT_ADMIN_USERNAME, generate_password_hash(DEFAULT_ADMIN_PASSWORD))
+sync_default_admin_credentials(
+    DEFAULT_ADMIN_USERNAME,
+    generate_password_hash(DEFAULT_ADMIN_PASSWORD),
+)
 
 
 def _require_admin_redirect():

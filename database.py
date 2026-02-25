@@ -184,6 +184,45 @@ def ensure_default_admin(username: str, password_hash: str) -> None:
         conn.close()
 
 
+def sync_default_admin_credentials(username: str, password_hash: str) -> None:
+    """
+    Keep default admin credentials in sync only while first-login mode is active.
+    If user exists with must_change_password=1, refresh hash from environment.
+    If user does not exist, create one.
+    If user has already changed password (must_change_password=0), do nothing.
+    """
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT must_change_password FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+
+        if row is None:
+            conn.execute(
+                "INSERT INTO users (username, password_hash, must_change_password) VALUES (?, ?, 1)",
+                (username, password_hash),
+            )
+            conn.commit()
+            print(f"[OK] Default admin user created: {username}")
+            return
+
+        if int(row["must_change_password"]) == 1:
+            conn.execute(
+                """
+                UPDATE users
+                   SET password_hash = ?,
+                       updated_at = datetime('now', 'localtime')
+                 WHERE username = ?
+                """,
+                (password_hash, username),
+            )
+            conn.commit()
+            print(f"[OK] Default admin credentials synced for: {username}")
+    finally:
+        conn.close()
+
+
 def update_user_password(username: str, new_password_hash: str) -> bool:
     """Update a user's password hash and clear must_change_password flag."""
     conn = get_connection()
