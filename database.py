@@ -125,6 +125,85 @@ def get_all_visitors() -> list[dict]:
         conn.close()
 
 
+def migrate_legacy_encrypted_fields() -> dict:
+    """
+    Re-encrypt legacy AES-CBC visitor fields into current AES-GCM format.
+
+    Returns:
+        Migration stats with total rows, migrated rows/fields, and failed rows.
+    """
+    from security import decrypt_data, encrypt_data, is_gcm_payload
+
+    stats = {
+        "total_rows": 0,
+        "rows_migrated": 0,
+        "fields_migrated": 0,
+        "rows_failed": 0,
+    }
+
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT id, encrypted_phone, encrypted_purpose FROM visitors"
+        ).fetchall()
+        stats["total_rows"] = len(rows)
+
+        for row in rows:
+            visitor_id = row["id"]
+            phone_cipher = row["encrypted_phone"]
+            purpose_cipher = row["encrypted_purpose"]
+
+            try:
+                new_phone = None
+                new_purpose = None
+
+                if not is_gcm_payload(phone_cipher):
+                    new_phone = encrypt_data(decrypt_data(phone_cipher))
+
+                if not is_gcm_payload(purpose_cipher):
+                    new_purpose = encrypt_data(decrypt_data(purpose_cipher))
+            except Exception:
+                stats["rows_failed"] += 1
+                continue
+
+            if new_phone and new_purpose:
+                conn.execute(
+                    """
+                    UPDATE visitors
+                       SET encrypted_phone = ?, encrypted_purpose = ?
+                     WHERE id = ?
+                    """,
+                    (new_phone, new_purpose, visitor_id),
+                )
+                stats["rows_migrated"] += 1
+                stats["fields_migrated"] += 2
+            elif new_phone:
+                conn.execute(
+                    "UPDATE visitors SET encrypted_phone = ? WHERE id = ?",
+                    (new_phone, visitor_id),
+                )
+                stats["rows_migrated"] += 1
+                stats["fields_migrated"] += 1
+            elif new_purpose:
+                conn.execute(
+                    "UPDATE visitors SET encrypted_purpose = ? WHERE id = ?",
+                    (new_purpose, visitor_id),
+                )
+                stats["rows_migrated"] += 1
+                stats["fields_migrated"] += 1
+
+        conn.commit()
+
+        if stats["rows_migrated"] > 0:
+            print(
+                "[OK] Migrated legacy encrypted data "
+                f"(rows={stats['rows_migrated']}, fields={stats['fields_migrated']})"
+            )
+        return stats
+    finally:
+        conn.close()
+
+
 def update_status(visitor_id: int, new_status: str) -> bool:
     """Update visitor status and return True when at least one row changed."""
     conn = get_connection()

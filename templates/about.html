@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR-Secure — About</title>
+    <title>QR-Secure - About</title>
     <meta name="description"
         content="Learn how QR-Secure modernizes visitor management with AES-256 encryption and liveness detection.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,11 +14,10 @@
 
 <body>
     <div class="about-page">
-
-        <!-- ── Navbar ── -->
         <nav class="about-nav">
             <a href="/" class="about-nav-logo">
-                <span class="logo-icon">🛡️</span> QR-Secure
+                <span class="logo-icon">QS</span>
+                <span>QR-Secure</span>
             </a>
             <div class="about-nav-links">
                 <a href="/">Home</a>
@@ -28,58 +27,83 @@
             </div>
         </nav>
 
-        <!-- ── Header ── -->
-        <header class="about-header">
+        <header class="about-header reveal" style="--reveal-delay:.1s">
             <h1>About QR-Secure</h1>
             <p class="about-subtitle">Modernizing Security at Siksha 'O' Anusandhan</p>
         </header>
 
-        <!-- ── Card Grid ── -->
-        <div class="about-grid">
-            <div class="about-card">
-                <div class="about-card-icon">⚠️</div>
+        <section class="about-grid">
+            <article class="about-card scroll-reveal" data-delay="0.02">
+                <div class="about-card-icon">01</div>
                 <h3>The Core Problem</h3>
                 <p>Traditional visitor logs are a major security and privacy loophole. Manual entries allow unauthorized
                     data visibility and are easy to tamper with. They lack data integrity and are difficult to audit
                     during security breaches.</p>
-            </div>
+            </article>
 
-            <div class="about-card">
-                <div class="about-card-icon">🛡️</div>
+            <article class="about-card scroll-reveal" data-delay="0.12">
+                <div class="about-card-icon">02</div>
                 <h3>Our Solution</h3>
                 <p>QR-Secure digitizes the entire workflow. We encrypt sensitive visitor data using AES-256 and issue
                     secure, time-bound QR passes. Data like phone numbers and purpose are secured end-to-end with local
                     SQLite storage.</p>
-            </div>
+            </article>
 
-            <div class="about-card">
-                <div class="about-card-icon">👁️</div>
+            <article class="about-card scroll-reveal" data-delay="0.22">
+                <div class="about-card-icon">03</div>
                 <h3>Liveness Innovation</h3>
                 <p>To prevent photo-spoofing, we implemented an Eye-Blink detection system. Registration only proceeds
                     when a real human is verified through a 2-blink liveness check using real-time EAR (Eye Aspect
                     Ratio) tracking.</p>
-            </div>
-        </div>
+            </article>
+        </section>
 
-        <!-- ── Tech Stack ── -->
-        <div class="about-tech">
+        <section class="about-tech scroll-reveal" data-delay="0.14">
             <h3>Technology Stack</h3>
             <div class="tech-chips">
-                <span class="tech-chip">🐍 Python / Flask</span>
-                <span class="tech-chip">🔐 AES-256 (PyCryptodome)</span>
-                <span class="tech-chip">💾 SQLite3</span>
-                <span class="tech-chip">📷 MediaPipe Face Mesh</span>
-                <span class="tech-chip">📱 QR Code (qrcode + pyzbar)</span>
-                <span class="tech-chip">🎨 HTML / CSS / JS</span>
+                <span class="tech-chip">Python / Flask</span>
+                <span class="tech-chip">AES-256 (PyCryptodome)</span>
+                <span class="tech-chip">SQLite3</span>
+                <span class="tech-chip">MediaPipe Face Mesh</span>
+                <span class="tech-chip">QR Code (qrcode + pyzbar)</span>
+                <span class="tech-chip">HTML / CSS / JS</span>
             </div>
-        </div>
+        </section>
 
-        <!-- ── Footer ── -->
+        <section class="about-collab scroll-reveal" data-delay="0.2">
+            <p>In collaboration with</p>
+            <img src="{{ url_for('static', filename='soa-university-logo.svg') }}" alt="SOA University logo" class="soa-logo">
+        </section>
+
         <footer class="about-footer">
             QR-Secure &copy; 2026 &mdash; Centre for Cybersecurity, SOA University
         </footer>
-
     </div>
+
+    <script>
+        (() => {
+            const items = document.querySelectorAll('.scroll-reveal');
+            if (!('IntersectionObserver' in window)) {
+                items.forEach((el) => el.classList.add('is-visible'));
+                return;
+            }
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.2 });
+
+            items.forEach((el) => {
+                const delay = Number(el.dataset.delay || 0);
+                el.style.setProperty('--reveal-delay', `${delay}s`);
+                observer.observe(el);
+            });
+        })();
+    </script>
 </body>
 
 </html>

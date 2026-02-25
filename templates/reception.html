@@ -2,67 +2,69 @@
 {% block title %}QR-Secure - Visitor Registration{% endblock %}
 
 {% block content %}
-<section class="hero">
+<section class="hero reveal" style="--reveal-delay:.08s">
     <h1>Visitor Registration</h1>
     <p class="subtitle">Encrypt. Register. Generate a secure QR pass.</p>
 </section>
 
-<div class="glass-card glass-card--narrow">
-    <form action="/register" method="POST" id="regForm">
+<section class="reception-layout">
+    <div class="glass-card glass-card--narrow reception-card form-entrance">
+        <form action="/register" method="POST" id="regForm">
+            <div class="form-cluster">
+                <div class="input-float">
+                    <input type="text" name="name" required autocomplete="name">
+                    <span>Full Name</span>
+                </div>
 
-        <div class="input-float">
-            <input type="text" name="name" required autocomplete="name">
-            <span>Full Name</span>
-        </div>
+                <div class="input-float">
+                    <input type="tel" name="phone" id="phoneInput" pattern="[0-9]{10}" maxlength="10"
+                        title="Please enter a valid 10-digit mobile number" inputmode="numeric" required>
+                    <span>Phone Number</span>
+                    <small class="input-hint">10-digit mobile - will be AES-256 encrypted</small>
+                    <small class="input-error" id="phoneError">Please enter exactly 10 digits (0-9 only)</small>
+                </div>
 
-        <div class="input-float">
-            <input type="tel" name="phone" id="phoneInput" pattern="[0-9]{10}" maxlength="10"
-                title="Please enter a valid 10-digit mobile number" inputmode="numeric" required>
-            <span>Phone Number</span>
-            <small class="input-hint">10-digit mobile - will be AES-256 encrypted</small>
-            <small class="input-error" id="phoneError">Please enter exactly 10 digits (0-9 only)</small>
-        </div>
-
-        <div class="input-float">
-            <input type="text" name="purpose" required>
-            <span>Purpose of Visit</span>
-        </div>
-
-        <div class="liveness-section">
-            <h3 class="liveness-title">Liveness Verification</h3>
-            <p class="liveness-hint">Blink <strong>2 times</strong> in front of the camera to verify you are a real person.</p>
-
-            <div class="webcam-container">
-                <video id="webcamFeed" autoplay playsinline muted></video>
-                <canvas id="faceCanvas"></canvas>
-                <div class="webcam-overlay" id="webcamOverlay">
-                    <span>Click "Start Camera" below</span>
+                <div class="input-float">
+                    <input type="text" name="purpose" required>
+                    <span>Purpose of Visit</span>
                 </div>
             </div>
 
-            <div class="liveness-controls">
-                <button type="button" class="btn-cam" id="startCamBtn">Start Camera</button>
-                <button type="button" class="btn-cam btn-cam--stop" id="stopCamBtn" style="display:none">Stop Camera</button>
-                <button type="button" class="btn-cam" id="manualVerifyBtn" style="display:none">Continue Manually</button>
-            </div>
+            <div class="liveness-section">
+                <h3 class="liveness-title">Liveness Verification</h3>
+                <p class="liveness-hint">Blink <strong>2 times</strong> in front of the camera to verify you are a real person.</p>
 
-            <div class="liveness-status">
-                <div class="blink-counter">
-                    <span class="blink-dot" id="dot1"></span>
-                    <span class="blink-dot" id="dot2"></span>
+                <div class="webcam-container">
+                    <video id="webcamFeed" autoplay playsinline muted></video>
+                    <canvas id="faceCanvas"></canvas>
+                    <div class="webcam-overlay" id="webcamOverlay">
+                        <span>Click "Start Camera" below</span>
+                    </div>
                 </div>
-                <p class="status-msg" id="statusMsg">Waiting for camera...</p>
+
+                <div class="liveness-controls">
+                    <button type="button" class="btn-cam" id="startCamBtn">Start Camera</button>
+                    <button type="button" class="btn-cam btn-cam--stop" id="stopCamBtn" style="display:none">Stop Camera</button>
+                    <button type="button" class="btn-cam" id="manualVerifyBtn" style="display:none">Continue Manually</button>
+                </div>
+
+                <div class="liveness-status">
+                    <div class="blink-counter">
+                        <span class="blink-dot" id="dot1"></span>
+                        <span class="blink-dot" id="dot2"></span>
+                    </div>
+                    <p class="status-msg" id="statusMsg">Waiting for camera...</p>
+                </div>
             </div>
-        </div>
 
-        <button type="submit" class="btn-main" id="submitBtn" disabled>
-            Verify Liveness First
-        </button>
+            <button type="submit" class="btn-main" id="submitBtn" disabled>
+                Verify Liveness First
+            </button>
+        </form>
+    </div>
+</section>
 
-    </form>
-</div>
-
-<section class="info-strip">
+<section class="info-strip reveal" style="--reveal-delay:.32s">
     <div class="info-item">
         <span class="info-icon">Secure</span>
         <span>AES-256 Encrypted</span>
@@ -157,7 +159,7 @@
         video.style.display = "none";
         canvas.style.display = "none";
         overlay.style.display = "flex";
-        overlay.innerHTML = "<span style='color:#22c55e;font-size:1.1rem'>Verified</span>";
+        overlay.innerHTML = "<span style='color:#6effad;font-size:1.1rem'>Verified</span>";
         startBtn.style.display = "none";
         stopBtn.style.display = "none";
         manualVerifyBtn.style.display = "none";

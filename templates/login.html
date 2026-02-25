@@ -12,14 +12,13 @@
 
 <body>
     <div class="login-page">
-        <div class="login-card">
+        <main class="login-card reveal" style="--reveal-delay:.1s">
             <div class="glass-card">
-
                 <div class="login-header">
-                    <span class="lock-icon">Lock</span>
+                    <span class="lock-icon" aria-hidden="true">&#128274;</span>
                     <h1>Admin Access</h1>
                     <p>QR-Secure Visitor Management</p>
-                    <p style="margin-top:.45rem;font-size:.8rem;color:var(--text-muted)">
+                    <p class="login-default-note">
                         Default login: <strong>admin</strong> / <strong>admin123</strong>
                     </p>
                 </div>
@@ -47,9 +46,8 @@
                 <div class="login-footer">
                     <a href="/reception">Back to Reception</a>
                 </div>
-
             </div>
-        </div>
+        </main>
     </div>
 </body>
 

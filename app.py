@@ -25,6 +25,7 @@ from database import (
     add_visitor,
     get_visitor,
     get_all_visitors,
+    migrate_legacy_encrypted_fields,
     update_status,
     set_verified_by,
     sync_default_admin_credentials,
@@ -88,6 +89,12 @@ sync_default_admin_credentials(
     DEFAULT_ADMIN_USERNAME,
     generate_password_hash(DEFAULT_ADMIN_PASSWORD),
 )
+migration_stats = migrate_legacy_encrypted_fields()
+if migration_stats["rows_failed"] > 0:
+    print(
+        "[WARN] Some legacy rows could not be migrated "
+        f"(failed={migration_stats['rows_failed']})."
+    )
 
 
 def _require_admin_redirect():

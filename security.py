@@ -1,130 +1,190 @@
 """
-security.py — QR-Secure AES-256 Encryption Module
-Handles all cryptographic operations for the visitor management system.
+security.py - QR-Secure AES-256 Encryption Module
+Handles cryptographic operations for the visitor management system.
 
-Encryption: AES-256-CBC with PKCS7 padding.
-Key:        Stored in a hidden file (.secret.key) alongside this script.
-            Auto-generated on first run; reused on subsequent runs.
+Default encryption: AES-256-GCM (authenticated encryption).
+Legacy support: AES-256-CBC with PKCS7 padding for older payloads.
+Key storage: .secret.key file alongside this script.
 """
 
-import os
 import base64
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
-from Crypto.Random import get_random_bytes
+import binascii
+import os
 
-# ── Key Management ─────────────────────────────────────────────
-# The key file is kept in the same directory as this script.
-# Prefix with '.' to make it hidden on Unix; on Windows it simply
-# stays out of casual sight.
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+from Crypto.Util.Padding import unpad
+
 KEY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".secret.key")
-KEY_SIZE = 32   # 256 bits
-IV_SIZE  = 16   # AES block size
+KEY_SIZE = 32  # 256 bits
+
+# New payload format: base64(GCM_MAGIC + nonce + tag + ciphertext)
+GCM_MAGIC = b"GCM1"
+GCM_NONCE_SIZE = 12
+GCM_TAG_SIZE = 16
+
+# Legacy payload format: base64(iv + ciphertext)
+IV_SIZE = 16  # AES block size
+
+
+def _harden_key_file_permissions() -> None:
+    """Best-effort permission hardening for key file."""
+    try:
+        os.chmod(KEY_FILE, 0o600)
+    except OSError:
+        # On some platforms/filesystems this may not be supported.
+        pass
+
+
+def _read_key_file() -> bytes:
+    with open(KEY_FILE, "rb") as f:
+        key = f.read()
+
+    if len(key) != KEY_SIZE:
+        raise ValueError(f"Corrupted key file: expected {KEY_SIZE} bytes, got {len(key)}")
+
+    _harden_key_file_permissions()
+    return key
 
 
 def _load_or_create_key() -> bytes:
     """
-    Load the AES-256 key from disk. If the key file does not exist,
-    generate a cryptographically secure key and persist it.
+    Load AES-256 key from disk, or generate it on first run.
 
     Returns:
         32-byte key suitable for AES-256.
     """
     if os.path.exists(KEY_FILE):
-        with open(KEY_FILE, "rb") as f:
-            key = f.read()
-        if len(key) != KEY_SIZE:
-            raise ValueError(f"Corrupted key file: expected {KEY_SIZE} bytes, got {len(key)}")
-        return key
+        return _read_key_file()
 
-    # First-run: generate a new key
     key = get_random_bytes(KEY_SIZE)
-    with open(KEY_FILE, "wb") as f:
-        f.write(key)
-    print(f"[OK] New AES-256 key generated and saved to {KEY_FILE}")
+    try:
+        fd = os.open(KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as f:
+            f.write(key)
+    except FileExistsError:
+        # Another process created the key concurrently.
+        return _read_key_file()
+
+    _harden_key_file_permissions()
     return key
 
 
-# Load once at module import time so every call reuses the same key.
+# Load once at import time so every call reuses the same key.
 _KEY = _load_or_create_key()
 
 
-# ── Encryption / Decryption ────────────────────────────────────
+def _decode_base64_strict(encoded_text: str) -> bytes:
+    try:
+        return base64.b64decode(encoded_text, validate=True)
+    except (binascii.Error, ValueError, TypeError) as exc:
+        raise ValueError("Malformed encrypted payload.") from exc
+
+
+def is_gcm_payload(encoded_text: str) -> bool:
+    """
+    Return True when payload is in the current AES-GCM format.
+    """
+    if not isinstance(encoded_text, str) or not encoded_text:
+        return False
+    try:
+        raw = _decode_base64_strict(encoded_text)
+    except ValueError:
+        return False
+    return raw.startswith(GCM_MAGIC)
+
 
 def encrypt_data(plain_text: str) -> str:
     """
-    Encrypt a plain-text string with AES-256-CBC.
-
-    Process:
-        1. Generate a random 16-byte IV (initialisation vector).
-        2. Pad the plain text to a multiple of the AES block size (PKCS7).
-        3. Encrypt with AES-256-CBC.
-        4. Prepend the IV to the cipher text (IV is not secret).
-        5. Base64-encode the result so it can be stored as text / in a QR.
+    Encrypt plaintext with AES-256-GCM.
 
     Args:
         plain_text: The string to encrypt.
 
     Returns:
-        Base64-encoded string containing [IV + ciphertext].
+        Base64 payload containing GCM metadata and ciphertext.
 
     Raises:
-        ValueError : If plain_text is empty.
-        Exception  : Propagates any cryptographic errors.
+        ValueError: If plain_text is empty or not a string.
     """
+    if not isinstance(plain_text, str):
+        raise ValueError("plain_text must be a string.")
     if not plain_text:
         raise ValueError("Cannot encrypt empty data.")
 
+    nonce = get_random_bytes(GCM_NONCE_SIZE)
+    cipher = AES.new(_KEY, AES.MODE_GCM, nonce=nonce, mac_len=GCM_TAG_SIZE)
+    ciphertext, tag = cipher.encrypt_and_digest(plain_text.encode("utf-8"))
+
+    payload = GCM_MAGIC + nonce + tag + ciphertext
+    return base64.b64encode(payload).decode("ascii")
+
+
+def _decrypt_gcm_payload(raw: bytes) -> str:
+    min_len = len(GCM_MAGIC) + GCM_NONCE_SIZE + GCM_TAG_SIZE + 1
+    if len(raw) < min_len:
+        raise ValueError("Malformed encrypted payload.")
+
+    offset = len(GCM_MAGIC)
+    nonce = raw[offset : offset + GCM_NONCE_SIZE]
+    offset += GCM_NONCE_SIZE
+    tag = raw[offset : offset + GCM_TAG_SIZE]
+    ciphertext = raw[offset + GCM_TAG_SIZE :]
+
     try:
-        iv = get_random_bytes(IV_SIZE)
+        cipher = AES.new(_KEY, AES.MODE_GCM, nonce=nonce, mac_len=GCM_TAG_SIZE)
+        plaintext = cipher.decrypt_and_verify(ciphertext, tag)
+        return plaintext.decode("utf-8")
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise ValueError("Invalid or tampered ciphertext.") from exc
+
+
+def _decrypt_legacy_cbc_payload(raw: bytes) -> str:
+    if len(raw) <= IV_SIZE:
+        raise ValueError("Malformed legacy ciphertext payload.")
+
+    iv = raw[:IV_SIZE]
+    ciphertext = raw[IV_SIZE:]
+    if len(ciphertext) == 0 or len(ciphertext) % AES.block_size != 0:
+        raise ValueError("Malformed legacy ciphertext payload.")
+
+    try:
         cipher = AES.new(_KEY, AES.MODE_CBC, iv)
-        padded = pad(plain_text.encode("utf-8"), AES.block_size)
-        encrypted = cipher.encrypt(padded)
-        # IV + ciphertext → base64
-        return base64.b64encode(iv + encrypted).decode("utf-8")
-    except Exception as e:
-        print(f"[ERROR] Encryption error: {e}")
-        raise
+        decrypted = unpad(cipher.decrypt(ciphertext), AES.block_size)
+        return decrypted.decode("utf-8")
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise ValueError("Invalid or tampered ciphertext.") from exc
 
 
 def decrypt_data(encoded_text: str) -> str:
     """
-    Decrypt a Base64-encoded AES-256-CBC cipher string.
-
-    Process:
-        1. Base64-decode the input.
-        2. Split the first 16 bytes (IV) from the rest (ciphertext).
-        3. Decrypt and un-pad.
+    Decrypt payload generated by encrypt_data() or legacy CBC payloads.
 
     Args:
-        encoded_text: The base64 string produced by encrypt_data().
+        encoded_text: Base64 encrypted payload string.
 
     Returns:
-        The original plain-text string.
+        Original plaintext string.
 
     Raises:
-        ValueError : If the encoded_text is empty or malformed.
-        Exception  : Propagates any cryptographic / padding errors.
+        ValueError: If payload is empty, malformed, or fails authenticity checks.
     """
+    if not isinstance(encoded_text, str):
+        raise ValueError("encoded_text must be a string.")
     if not encoded_text:
         raise ValueError("Cannot decrypt empty data.")
 
-    try:
-        raw = base64.b64decode(encoded_text)
-        iv         = raw[:IV_SIZE]
-        ciphertext = raw[IV_SIZE:]
-        cipher = AES.new(_KEY, AES.MODE_CBC, iv)
-        decrypted = unpad(cipher.decrypt(ciphertext), AES.block_size)
-        return decrypted.decode("utf-8")
-    except Exception as e:
-        print(f"[ERROR] Decryption error: {e}")
-        raise
+    raw = _decode_base64_strict(encoded_text)
+    if raw.startswith(GCM_MAGIC):
+        return _decrypt_gcm_payload(raw)
+
+    # Backward compatibility: base64(iv + ciphertext) payloads.
+    return _decrypt_legacy_cbc_payload(raw)
 
 
-# ── Quick Self-Test ────────────────────────────────────────────
 if __name__ == "__main__":
     samples = ["9876543210", "Meeting with Director", "Parcel delivery for Room 301"]
-    print("--- AES-256 Self-Test ---")
+    print("--- AES-256 GCM Self-Test ---")
     for text in samples:
         enc = encrypt_data(text)
         dec = decrypt_data(enc)

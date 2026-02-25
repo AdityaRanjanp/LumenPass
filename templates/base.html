@@ -12,13 +12,13 @@
 </head>
 
 <body>
-    <!-- ── Top Navigation ── -->
     <nav class="navbar">
         <a href="/" class="nav-brand">
-            <span class="brand-icon">🛡️</span> QR-Secure
+            <span class="brand-icon">QS</span>
+            <span>QR-Secure</span>
         </a>
         <div class="nav-links">
-            <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Reception</a>
+            <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a>
             <a href="/admin" class="nav-link {% if '/admin' in request.path %}active{% endif %}">Admin Panel</a>
             {% if session.get('admin_logged_in') %}
             <a href="/change-password" class="nav-link {% if '/change-password' in request.path %}active{% endif %}">Change Password</a>
@@ -29,8 +29,7 @@
         </div>
     </nav>
 
-    <!-- ── Flash Messages ── -->
-    <div class="container">
+    <main class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for category, message in messages %}
@@ -40,9 +39,8 @@
         {% endwith %}
 
         {% block content %}{% endblock %}
-    </div>
+    </main>
 
-    <!-- ── Footer ── -->
     <footer class="footer">
         <p>QR-Secure &copy; 2026 &mdash; Centre for Cybersecurity, SOA University</p>
     </footer>

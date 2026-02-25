@@ -1,0 +1,10 @@
+<svg width="640" height="190" viewBox="0 0 640 190" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="1" y="1" width="638" height="188" rx="20" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>
+  <g transform="translate(38,28)">
+    <path d="M54 0L96 17V54C96 83 79 109 54 124C29 109 12 83 12 54V17L54 0Z" fill="white" fill-opacity="0.94"/>
+    <path d="M54 23L73 31V54C73 69 65 83 54 91C43 83 35 69 35 54V31L54 23Z" fill="#0A1020"/>
+    <path d="M54 39L61 42V54C61 60 57 66 54 69C51 66 47 60 47 54V42L54 39Z" fill="white"/>
+  </g>
+  <text x="170" y="83" fill="white" font-family="Inter, Arial, sans-serif" font-size="56" font-weight="700" letter-spacing="1.2">SOA</text>
+  <text x="170" y="131" fill="white" fill-opacity="0.88" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="4">UNIVERSITY</text>
+</svg>
